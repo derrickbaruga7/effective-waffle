@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident JSON Builder & Viewer</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useMemo, useState } = React;
+
+        // Simple, self-contained UI that parses the provided tab-delimited data into the
+        // requested JSON structure (one JSON object per row), lets you filter/search,
+        // view details, and export the resulting JSON.
+
+        const RAW = `Date	Incident	Object	Injury	Type	Department	PPE	Summary 	Potential Claim?	# Lost Days	# Restricted Days	ReportID
+3/28/2023	Injury	Body	Foreign Body	Incident	Fabrication	yes	While individual was welding using the sub arch, attempted to clean flux from underneath the vessel. As he was bent down looking up a small piece of hot flux fell from vessel and entered behind his safety glasses landing in his right eye.	Yes			1909657
+10/4/2023	Injury	Body	Foreign Body	Incident	Fabrication	yes	Employee flipped welding hood down to start welding, when a piece of metal fell behind his safety glasses into his eye. Hood had debris build up.	Yes			1909745
+2/13/2023	Injury	Body	Burn	Incident	Fabrication	yes	Using torch to cope runners. Hot slag fell down into boot. Steel toed boots were worn and had hole just behind the steel toe.	No			1910948
+10/17/2023	Injury	Body	Contusion	Incident	Construction	yes	Attempting to tighten a fitting in a cramped location on unit, and wrench slipped causing him to strike his elbow against metal edge veratrole. Tool was found to be worn.	Yes			1911828
+2/11/2023	Property Damage	Structure		Incident	Fabrication		Forklift individual was attempting to pick skid up from cart, cart rolled and punctured paint bucket.	No			1910283
+4/7/2023	Spill	Unit		Incident	Fabrication		During a leak test, the discharge plug was left off and pressure caused condensate to escape and spill on floor and skid.	No			1914591
+4/10/2023	Injury	Body	Contusion	Incident	Construction	yes	Employee climbed up unit to remove bolt from fan guard. The unit had oil in the skid from a leak. When he climbed onto unit the bottom of his boots were coated with oil. This caused him to slip as he was climbing up.	No			1910226
+1/20/2023	Injury	Body	Shock	Incident	Construction	yes	While replacing battery in the PLC made contact with exposed 24v wires. Wires had been damaged by a mouse while in the field.	No			1924180
+7/22/2023	Property Damage	Parts		Incident	Construction		Vessel fell from rollers when individual runed away to hang-up grinder. Foot pedal had clamp on it, the individual did not have control of machine and was unable to stop it. 	No			1910421
+1/14/2023	Property Damage	Unit		Incident	Fabrication		Bearing failure caused fire. Operator was able to extinguish using fire extinguisher.	No			1910153
+7/25/2023	Property Damage	Unit		Incident	Construction		Tech noticed something wrong with flare on site. He informed the pumper, but his warning was ignored. Shortly after the flare caught fire and caused the site to be evacuated.	No			1910221
+10/28/2023	Property Damage	Vehicle		Incident	Construction		Tech lost compressor out of the back of his service truck. Another driver on highway hit the compressor and damaged their vehicle. Compressor was not secured on pallet properly.	No			1910237
+10/12/2023	Property Damage	Vehicle		Incident	Construction		Tech rear ended vehicle in front of him. Looked down to check speed (25-30mph) looked up and saw break lights. He was not able to stop in time.	No			1910061
+3/17/2023	Property Damage	Parts		Incident	Operations		Unused filters in cases caught on fire. Tech flipped cigarette out the window of service truck and it landed in the case of filters in the back of the truck.	No			1911268
+6/20/2023	Injury	Body	Sprain/Strain	Incident	Construction	yes	Tech ran into pipe head first in a panic attempting to hit e-stop. Unit started to steam/smoke during start up.	Yes			1910145
+6/1/2023	Property Damage	Vehicle		Incident	Construction	yes	Tech attempted to make a turn on a narrow road and decided to back up instead of driving off the dirt shoulder. When he backed up he hit another vehicle behind him that he was unable to see.	No			1909981
+6/14/2023	Property Damage	Vehicle		Incident	Operations		Sitting at stop light. Light turned green, but traffic did not. The vehicle behind our service truck was not paying attention and ran into the back of the truck.	No			1910971
+10/27/2023	Spill	Unit		Incident	Fabrication		Oil pressure got to high and blew out the oil filter O-ring	No			1911541
+11/5/2023	Property Damage	Vehicle		Incident	Operations		Stop and go traffic. He looked down to turn off radio and did not see traffic had stopped again. He ran into the back of the vehicle in front of him.	No			1911027
+11/30/2023	Property Damage	Vehicle		Incident	Operations		Tech was sitting at red light and was rear ended by another driver. Other driver left scene.	No			1910928
+2/18/2023	Property Damage	Unit		Incident	Construction	yes	While troubleshooting why unit was down, tech reset breaker and closed door to turn back on. When breaker was switched on the wire to the lightning arrestor arc flashed. Most likely original damaged occurred from previous night thunder storm.	No			1911337
+12/16/2023	Spill	Unit		Incident	Construction		Cooler failure. Unknown cause for hole in cooler.	No			1913576
+11/26/2023	Property Damage	Vehicle		Incident	Administrative		Rear driver side break line failure caused a fire when hot break fluid contacted the disc break. Fire was extinguished quickly with minor damage.	No			1911165
+2/27/2023	Property Damage	Vehicle		Incident	Operations		Tech was pulling out of his driveway with foggy windows. Looked down while turning to turn on defrost and hit dumpster that was on the side of the road.	No			1912017
+12/6/2023	Property Damage	Vehicle		Incident	Operations		Night callout. Tech was driving on location and attempting to position truck so that the head lights would illuminate the unit. A one inch gas line had been terminated from a generator by the customer and left sticking up out of the ground without any marking. Tech did not see gas line and hit it. Minor damage to line and bumper.	No			1910826
+12/11/2023	Injury	Body	Burn	Incident	Construction	yes	While taking pictures of unit made contact on hot pipe with arm.	No			1910818
+3/11/2023	Injury	Body	Foreign Body	Incident	Fabrication	yes	While grinding mid beams with 4" grinder, metal debris bounced off of him and under his face shield, landing in his eye. Glasses and shield were worn properly.	No			1911900
+2/26/2023	Injury	Body	Sprain/Strain	Incident	Administrative	yes	Walking to trash can and slipped on ice. Did not report at the time of event. He did not report issue until after he went to personal doctor.	Yes			1911161
+1/25/2023	Property Damage	Body	Burn	Incident		no	While welding a spark/slag landed on her arm catching her hoodie sleeve on fire. PPE FR sleeves were under her hoodie, not worn properly.	No			1910740
+11/30/2023	Injury	Body	Contusion	Incident	Fabrication	yes	Tripped over pallets outside weld shop. They had been taking smoke breaks on the pallets and he was attempting to adjust them with his feet/legs and lost his balance. 	No			1910648
+8/25/2023	Injury	Body	Shock	Incident	Operations	yes	Ground clamp for welder was not properly secured and allowed minor electrical current to flow through his elbow.	No			1910799
+4/10/2023	Injury	Body	Burn	Incident	Fabrication	yes	Hot slag from welding fell through hole in his jeans and down through the top of his boot.	No			1910944
+1/30/2023	Injury	Body	Sprain/Strain	Incident	Administrative	yes	Employee stated that he tripped over rubber boot mat outside the breakroom door. Stated that he had previous foot problems and refused any medical treatment.	No			1910724
+10/11/2023	Property Damage	Unit		Incident	Administrative	yes	Employee was leaving for the day and left his car in reverse when he got out to speak to another individual. His car rolled backwards and hit unit that was ready for shipping. Minor damage to unit and car.	No			1911090
+1/12/2023	Injury	Body	Laceration	Incident	Fabrication	yes	After making a bad weld, he attempted to open "butt joint" with 4 inch grinder disc. The disc hung up and jumped out of joint and contacted his finger. He was forcing disc and operating grinder with one hand. His leather gloves were worn out.	Yes			1910668
+3/31/2023	Property Damage	Parts		Incident	Fabrication		Employee failed to secure load and lost a box of tubing on the highway	No			1910833
+5/13/2023	Injury	Body	Foreign Body	Incident	Construction	yes	After cleaning slobber off beams he raised his face shield and a piece of metal fell into his eye.	No			1910634
+7/4/2023	Property Damage	Structure		Incident	Fabrication		She was trying to sit down a dumpster near are of construction. Missed judged distance to all and broke office window.	No			1918402
+5/27/2023	Injury	Body	Abrasion	Incident	Fabrication	yes	Employee was using grinder to clean edge of table. Grinder jumped back and caught his shirt, twisting the fabric and pinching his skin.	No			1910328
+12/25/2023	Injury	Body	Burn	Incident	Construction	no	He was tack welding a part on the skid without gloves on. A small piece of slag hit his finger and metal wedding band.	No			1914075
+3/14/2023	Injury	Body	Contusion	Incident	Construction	yes	Another individual was trying to install a brace on unit. The level that was being used fell off the brace when they hit the brace with a hammer to adjust position. The level fell about two feet and struck Trey in the head.	No			1910838
+4/25/2023	Injury	Body	Abrasion	Incident	Construction	yes	Using grinder and wrong disc to clean beam. Grinder kicked back and made contact with loose shirt. The shirt twisted and pinched his skin.	No			1910360
+1/9/2023	Injury	Body	Laceration	Incident	Construction	yes	She was throwing broken pieces of pallets into the wood dumpster and one of the pieces fell back down hitting her in the head.	No			1910868
+3/14/2023	Injury	Body	Laceration	Incident	Operations	yes	Employee was using clamps and a hammer to tack plate onto skid. One of the clamps came loose and fell hitting him in the head.	No			1910832
+7/22/2023	Injury	Body	Laceration	Incident	Fabrication	no	Employee was using razor knife to cut trim board without gloves. Knife slipped and contacted his finger.	No			1911042
+10/13/2023	Property Damage	Equipment		Incident	Operations		Forklift individual was moving trailer with forklift, tried to clear a stack of motors and misjudged clearance. Tail light was broken from hitting motors.	No			1911089
+4/24/2023	Injury	Body	Puncture	Incident	Operations	yes	Employee tossed welding gun over skid runner. The gun swung down and back hit him in the shin. The wire sticking out of the gun nozzle was still hot and punctured his leg.	No			1911527
+7/23/2023	Injury	Body	Foreign Body	Incident	Fabrication	yes	Metal debris from 4 inch grinder flew into eye while cleaning clag from beam. Face shield and safety glasses were being used properly.	No			1911662
+4/1/2023	injury	Body	Break	Incident	Construction	yes	Unit of plywood was being lifted with a crane. The rigging or strapping failed and the plywood fell from the platform. Injured employee was pouring a concrete on opposite side of the building when one of the pieces of plywood hit him in the back of the head. He suffered a brain bleed, a skull fracture, and broken vertebrae in the back and neck.	Yes			1914361
+1/11/2023	Property Damage	Structure		Incident	Fabrication	yes	Forklift individual was attempting to place two 10 inch pipes on rack. He was not lined up with the center of the rack. When he went to place pipe rack arms it slid off of forks and rack hitting the side of the building.	No			1913152
+10/3/2023	Property Damage	Parts		Incident	Fabrication		Employee placed red rag soaked in thinner on work table and proceeded to weld with rag three feet away. Rag caught on fire and was extinguished.	No			1911640
+10/6/2023	Injury	Body	Contusion	Incident	Construction	yes	Employee was moving heads from one pallet to another. Loose head shifted and his finger was pinched between the two heads.	No			1912874
+10/15/2023	Spill	Unit		Incident	Fabrication	yes	While test running noticed pressure was to high. He shutdown the unit to change oil filter. Pressure was not released before he started to loosen filter. Filter O-ring blew out.	No			1911156
+7/7/2023	Property Damage	Equipment		Incident		yes	Employee was lifting skid with overhead crane. The skid rigging was not balanced properly. He lowered the skid to the ground and climbed the side of the skid to adjust rigging. He failed to secure skid properly before adjusting rigging. The skid was thrown of balance when he jumped down from skid causing it to fall over onto welding machine.	No			1913105
+8/1/2023	Injury	Body	Laceration	Incident		yes	Employee was trying to align tubing on unit. He was pulling tubing back to try and position it correctly. Tubing slipped out of his hand and struck him in the lower lip.	No			1911322
+12/16/2023	Property Damage	Parts		Incident	Construction		Tech placed used suction filter in plastic bag and was driving back to the shop when the filter started smoldering in the bed of the truck. Extinguished fire with fire extinguisher.	No			1911395
+10/30/2023	Spill	Unit		Incident	Fabrication	yes	Tech removed 2 inch plug from scrubber. The unit had been filled with crude. When the plug was removed gravity allowed the crude to spill out. Most stayed on the skid, but some of the crude sprayed on tech. No injury from event.	No			1912122
+5/25/2023	Property Damage	Vehicle	Sprain/Strain	Incident	Fabrication		Tech was driving to lunch when a severe dust storm blew in across the road. He was attempting to pull off the road onto the shoulder when a Semi Truck rear ended him. He sustained minor injuries. His truck was pushed forward into another S&R service truck that was pulling a wash trailer. Both the truck and trailer were damaged.	No			1912389
+10/11/2023	Spill	Unit		Incident	Construction		Unit blew a valve pocket and sprayed 7-10 gallons of oil onto the skid and ground.	No			1912373
+3/29/2023	Injury	Body	Sprain/Strain	Incident	Construction		Tech was trying to install receiver luggage rack on service truck. Felt tightness in back and struggled to stand up. Has previous history with back pain.	No			1913407
+3/5/2023	Property Damage	Vehicle		Incident	Construction		Tech was leaving location at night. A small cow stepped out in front of his truck on a county dirt road. Minor damage to head light.	No			1911870
+7/12/2023	Property Damage	Unit		Incident	Operations	yes	Tech was trying to lock out unit. The valve he needed to lock had been wrapped with insulation and was unable to close and apply lock. He used a knife to cut away the insulation and cut into the heat tracer line. Small electrical arc.	No			1911037
+6/19/2023	Property Damage	Parts		Incident	Operations	yes	Skid had been rotated and braces were mounted. They were removing the rigging and started to move crane out of the way. Before all rigging had been removed and placed out of the way, crane individual started to raise crane hook, one of the rigging chains snagged the skid and caused it to fall over break the tack welds of the support beams.	No			1911785
+5/20/2023	Property Damage	Parts		Incident	Construction	yes	After moving vessel from hydro to production line, individual attempted to "walk" the vessell over the track plate by hand. The crane was unable to move far enough south to set the vessel on the plate. The track plate is about 1/2" thick and sticks up above the floor surface. The individual lost control of the vessel and hit fell over hitting the ground.	No			1911531
+7/26/2023	Injury	Body	Contusion	Incident	Construction	Yes	Loosing a 2" plug, wrenched slipped and he smashed his finger between rachet and hammer union.	No			1911140
+8/20/2023	Injury	Body	Sprain/Strain	Incident	Fabrication	yes	Employee stepped in oil puddle that was on track on his way out of the building.	No			1919812
+4/26/2023	Property Damage	Parts		Incident	Fabrication		While moving vessels forklift on a pallet, the bumpy ground caused the vessel to bounce and roll off pallet	No			1913166
+2/25/2023	Injury	Body	Contusion	Incident	Fabrication	yes	While assisting another individual, he moved his hand into the line go fire. Other individual was using wrench to hit a frame to loosen up bolts. When he swung up, Austin moved his hand and was hit with wrench. Austin claimed that he got into a bar fight the weekend before and broke the same hand/finger. He did not report this incident until he was terminated.	No			1912352
+11/22/2023	Property Damage	Equipment		Incident	Fabrication		Employee was attempting to empty small dumpster into large dumpster. Small dumpster fell off forklift into the larger one. Safety chain was not in use.	No			1911510
+12/7/2023	Property Damage	Vehicle		Incident			Employee pulled up to customer gate, severe wind storm had picked up a large tank pad and blew it onto the service truck.	No			1911639
+10/11/2023	Property Damage	Vehicle		Incident	Construction		Tech was exiting off interstate and glanced back down to read message on phone. He hit the hitch on truck in front of him. No damage to other vehicle. Bumper on our truck was damaged.	No			1911421
+12/28/2023	Spill	Unit		Incident			Check valve on compressor was leaking and sprayed oil onto skid and service truck, less than 2 gallons	No			1913455
+3/21/2023	Property Damage	Structure		Incident	Construction		Overhead door made a loud "pop" sound and fell. It was fully open.	No			1912198
+11/3/2023	Property Damage	Unit		Incident			Unit had condensate in vessel from the field. Ball valve had been removed and allowed condensate to leak out onto the skip. Employee started to weld pilot on skid and condensate caught fire.	No			1916616
+10/24/2023	Property Damage	Structure		Incident	Operations		While the overhead door was being raised, it fell about 2 feet hitting the ground.	No			1912734
+10/16/2023	Property Damage	Structure		Incident	Operations		Overhead door fell after being opened.	No			1911711
+8/4/2023	Property Damage	Vehicle		Incident	Operations		Employee was backing up and hit another service truck that was parked behind him. He was not paying attention. Damage to the other service truck toolbox door, minor damage to his truck.	No			1910913
+10/11/2023	Injury	Body	Break	Incident	Operations		2 employees were unloading a walk-behind concrete saw from a trailer in a parking lot. A telescopic handler with forks was being used to carry the saw, suspended with a lifting strap. One of the employees was walking in front of/beside the telehandler, holding on to the handle to keep the saw from swinging. As they maneuvered onto a concrete pad, the wheel of the telehandler ran into and pinned that employee's right leg, knocking them over. The employee suffered a leg/foot injury that resulted in a muscular injury.	Yes			1929524
+4/26/2023	Injury	Body	Break	Incident			Employee was working inside a flooded generator containment. The customer had left the grate off the sump pit. As he walked around the unit, he fell into the sump pit. The pit was 3-4 feet deep.	Yes			1912530
+11/21/2023	Spill	Unit		Incident			Breather on top of engine froze due to weather. Crankcase pressure caused fill cap to pop off and allowed oil to spray up out of engine. Approximately 1 gallon on ground.	No			1911901
+4/8/2023	Spill	Unit		Incident	Construction		Thermostat failure allowed cooling system to over pressure and hose split. Approximately 2 gallons on the ground.	No			1912055
+12/28/2023	Property Damage	Structure		Incident	Construction		While trying to push unit out of paint booth, the overhead door was not fully up and the unit hit the door.	No			1911707
+6/3/2023	Injury	Body	Fracture	Incident	Fabrication	Yes	He placed his hand on runner has he bent down to pick up clamp that was a trip hazard. The runner was not secured and rolled onto his finger as he leaned over.	Yes			1911417
+12/27/2023	Injury	Body	Sprain/Strain	Incident	Construction		Employee started experiencing discomfort in right shoulder brought on by welding.	No			1911497
+5/19/2023	Injury	Body	Puncture	Incident	Operations		Employee was power washing and reached down to flip the hose and caught his arm with the end of the power washer tip. 	No			1911568
+12/7/2023	Spill	Unit		Incident	Operations		Hose came out of used oil and pumped onto floor.	No			1911688
+11/22/2023	Property Damage	Vehicle		Incident	Fabrication		Driver door was open and locked into position while attempting to line up to move cooler the door bumped into the serial number tag of cooler in a different row causing door jam to bend door. 	No			1911487
+1/5/2023	Near Miss	Unit	N/a	Incident	Operations		While installing a muffler on a unit she was leaning over the cooler and accidentally hit the crane pendant causing it to move and knock her halfway off. 	No			1911759
+8/26/2023	Injury	Body	Contusion	Incident	Fabrication		Employee was cutting limbs off tree and was hit in the head with trimmers.	No			1911699
+4/21/2023	Injury	Body	Contusion	Incident	Administrative		Employee was walking through the Northwest door of the warehouse and the door closer fell off and hit the individual in the head. 	No			1911454
+2/17/2023	Injury	Body	Foreign Body 	Incident	Administrative	Yes	Employee was grinding with safety glasses and face shield, when a piece of metal got in his eye. 	No			1911595
+10/4/2023	Property Damage	Unit		Incident	Fabrication		The individual was using a forklift to get an engine motor off an E&I truck and grabbed a second motor with the first one. Causing one to fall to the ground. 	No			1912479
+5/21/2023	Near Miss 	Equipment 		Incident	Fabrication		Employee was driving forklift in Fab door and forgot to hook the chain back when he left. 	No			1912416
+6/13/2023	Injury	Body	Laceration	Incident	Construction		Employee was putting on his welding sleeve and bumped his hand on the beveled piece of pipe in his booth causing him to cut is knuckle. 	No			1912323
+6/23/2023	Injury	Body	Contusion	Incident	Fabrication		Employee was on the roof changing air filters on the roof and when he raised up he hit his head on the AC unit. 	No			1912418
+4/12/2023	Injury	Body 	Stung	Incident	Fabrication		Employee was strapping a unit down and didnâ€™t see the wasp nest, ended up getting stung.	No			1912200
+12/20/2023	Spill 	Forklift		Incident	Construction		Hub broke on #1 forklift spilling rear end oil. Davis was driving. 	No			1912699
+8/13/2023	Spill 	Unit		Incident	Construction		Employee was unmasking an unit and cut the hose with his safety knife. 	No			1912250
+8/11/2023	Injury	Body	Contusion	Incident	Operations	Yes	Employee was cutting pipe with the saw and went to move a piece next to the other and one fell smashing his finger between two pipes.	No			1915464
+1/30/2023	Property Damage 	Unit		Incident	Construction		Employee was pushing out a unit and the bay door wasnâ€™t open all the way, causing him to hit the door with the back part of the unit. 	No			1913452
+9/1/2023	Injury	Body	Laceration	Incident	Fabrication	Yes 	Employee was reaching for his pliers that were on top of his ladder. A piece of welding wire had burned into the ladder causing him to stab his hand on it. 	No			1912219
+6/24/2023	Injury	Body	Burn	Incident	Construction		Employee was using a heat gun to heat electrical labels. He placed the heat gun to the side and bumped it off causing it to fall and burn his arm. 	No			1912461
+2/23/2023	Injury 	Body	Sprain/Strain	Incident	Operations		Employee was grinding out welds and his hand/finger starting hurting rom the grinding. 	No			1912701
+11/18/2023	Injury 	Body	Sprain/Strain	Incident	Operations		Employee stated he was experiencing numbness in his shoulder, possibly from an injury that didn't happen at work. 	Yes			1912239
+8/5/2023	Property Damage 	Structure		Incident	Fabrication		Employee pressed the bottom to close the bay door and walked away. Heard a noise and the door got caught on the edge of a barrel. He moved, raised the door back up and it was messed up. 	No			1911797
+6/24/2023	Injury 	Body	Laceration	Incident		No	Employee was removing his glove to wipe sweat off his face. When he raised his hand, he scarped the beveled edge of the vessel. Tore skin off his knuckle and finger. 	No			1912161
+7/25/2023	Injury 	Body 	Sprain/Strain	Incident	Construction		Employee was lifting a box out a crate and pulled his lower back after lifting the load. 	No			1912291
+5/18/2023	Injury	Body	Contusion	Incident	Fabrication		Employee was waling around the back of the unit and slipped on a puddle of condensation on the floor. The individual fell on the railing on the floor and landed on her hip and arm. 	No			1912151
+2/9/2023	Spill 	Forklift		Incident	Construction		Forklift 3 party fixed pressure sensor and forgot to tighten fluid lines. When he started the lift it sprayed fluid on the ground. 	No			1913982
+12/13/2023	Injury 	Body 	Contusion	Incident	Operations		Employee was trying to break union apart with a pipe wrench/hammer and missed when she went to hot the wrench and came back and hit her knee. 	No			1914016
+11/27/2023	Injury 	Body	Laceration	Incident	Operations		The individual put the pipe in the vise and went to crank on it. When the individual went to crank, it slipped causing it to hit him in the head.	Yes			1912403
+6/28/2023	Injury	Body	Sprain/Strain	Incident	Fabrication		Employee was digging the post for the fence. While digging he had about 6 inches of gravel and hurt and hurt his wrist trying to brake the ground. He was using the wrong shovel. 	Yes			1912112
+8/7/2023	Property Damage 	Vehicle		Incident			An individual was reversing out his parking spot, looked in his mirrors and when backing up he felt the impact of the truck hitting another employees toolbox door. 	No			1912776
+11/12/2023	Spill	Unit		Incident			The coolant system over pressured due a thermostat going bad, and the hose split. 	No			1912120
+1/15/2023	Property Damage	Vehicle 		Incident			The individual was headed Weston on I-20 when he swerved to miss a dog and lost control and hit a bridge railing. 	No			1912154
+6/24/2023	Injury	Body	Sprain/Strain	Incident	Administrative		Employee was getting the hose and pump hook from the waste tank. The individual got off the bed of truck and landed wrong on his foot/ankle. 	No			1912511
+9/9/2023	Injury	Body	Sprain/Strain	Incident	Fabrication		Employee started to have soreness in left shoulder. 	No			1912196
+6/27/2023	Injury 	Body	Laceration	Incident	Fabrication		Employee was tightening the nut underneath the compressor and it slipped causing him to cut his chin on the oil drain. 	No			1912757
+1/2/2023	Property Damage	Vehicle		Incident	Construction		Employee was traveling south on 245 attempting to turn onto a lease road. The other vehicle attempted to pass on the highway and the front of my truck hit the side of the vehicle passing. 	No			1912063
+2/23/2023	Spill	Unit		Incident	Fabrication		Employee had freezing temps and the breather on top of the engine froze up. Crankcase pressure and the pressure pushed out the fill cap and sprayed oil all over the skid and a little on the snow and ground. 	No			1913481
+7/6/2023	Spill	Unit		Incident	Fabrication		Employee was working on a unit that was missing 2 containment plugs causing oil to spill on the unit an ground. 	No			1913022
+2/14/2023	Injury	Body	Sprain/Strain	Incident	Construction		Employee stepped in a shallow pot hole while walking over to his truck and hurt is left ankle.  	No			1911645
+5/19/2023	Property Damage 	Vehicle		Incident	Construction		Employee noticed he wasnâ€™t parked square between the lines in hid parking spot. He attempted to make an adjustment and bumped the rear bumper of another vehicle. 	No			1913279
+10/31/2023	Near Miss	Unit		Incident	Construction		Employee was replacing 2nd stage valve on compressor. Unit was being purged and blow down was open and gas starting coming out of PRU valve. PSI was high and pressure was high so they completely blew down the pressure and checked it. They then stopped work to replace the suction scrubber before they began work again.	No			1912377
+10/27/2023	Near Miss 	Unit 		Incident	Operations		Employee was re energizing customer power and when he went to turn the power back on he heard an explode from the VFD. Found a wrench that caused an arc flash in panel. 	No			1912046
+3/3/2023	Spill	Unit		Incident	Construction		Employee was working on a unit and the sight glass busted causing oil spill on unit. 	No			1912972
+8/4/2023	Near Miss 	Unit 		Incident	Construction		Employee arrived on location for call out. Saw failure on panel. Shut off power and opened panel. Found burned phase loss monitor with all three incoming power wires sheared off. It appeared the monitor had caught fire. Wires that were sheared off has been arcing on din rail the monitor was mounted to.	No			1912682
+8/12/2023	Injury	 Body	Burn	Incident	Operations		Employee was clearing a tubing line of liquids on the recycle valve. The individual loosened the feral to check for liquid and it suddenly went back and muddy. The h2S monitor started going off. Was prone in the line and hit the individual in the side of the face and forearm with cond. 	No			1913007
+5/16/2023	Property Damage	Vehicle		Incident	Fabrication		Employee was in the turning lane. The truck creeped froward into traffic. Causing damage to the vehicle. 	No			1925494
+5/11/2023	Near Miss 	Unit 		Incident	Fabrication		Employee  was fixing a failure and turned off the wrong breaker. When he powered back on it an arc flashed occurred. 	No			1912391
+1/6/2023	Property Damage 	Vehicle		Incident	Fabrication		Employee was driving in the turning lane and she was in the other lane waiting in line. She turned into my line so I seen her and moved the truck out of way to avoid her and she side swiped my truck. 	No			1913687
+2/17/2023	Property Damage 	Vehicle 		Incident			Employee was driving south on 338 and rear ended the vehicle stopped at the Johnsonville intersection light. 	No			1926222
+8/10/2023	Near Miss 	Unit 		Incident			Employees filter fell inside coalescer, was fishing out filter and something ignited causing a flame. 	No			1925789
+12/10/2023	Property Damage 	Vehicle 		Incident	Administrative		Employee was pulling out Walmart parking lot and going across south bound lane to go north bound lane. The individual didn't notice the vehicle and hit the other car. 	No			1925648`;
+
+        // Static references provided in the prompt
+        const SAFETY_REF = {
+          section: "4.1 PPE Requirements - Welding Operations",
+          requirement:
+            "Workers must wear safety glasses with side shields and face shields during welding operations. Additional protection such as full-face shields or welding goggles must be worn when working beneath or around overhead welding operations.",
+        };
+
+        const CAUSAL_DEFS = {
+          people_factors: [
+            "Personal Protective Equipment not used or used improperly",
+            "Violation intentional (by individual or group)",
+            "Violation unintentional (by individual or group)",
+            "Improper position (in the line of fire)",
+            "Work or motion at improper speed",
+            "Improper lifting or loading",
+            "Servicing of energized equipment/inadequate energy isolation",
+            "Failure to warn of hazard",
+            "Inadequate use of safety systems",
+            "Equipment or materials not secured",
+            "Disabled or removed guards, warning systems or safety devices",
+            "Improper decision making or lack of judgement",
+            "Lack of attention/distracted by other concerns/stress",
+            "Acts of violence",
+            "Use of drugs or alcohol",
+            "Fatigue",
+            "Overexertion or improper position/posture for task",
+            "Improper use/position of tools/equipment/materials/products",
+          ],
+          process_factors: [
+            "Inadequate/defective guards or protective barriers",
+            "Inadequate/defective Personal Protective Equipment",
+            "Inadequate/defective warning systems/safety devices",
+            "Inadequate security provisions or systems",
+            "Inadequate design/specification/management of change",
+            "Inadequate/defective tools/equipment/materials/products",
+            "Inadequate maintenance/inspection/testing",
+            "Congestion, clutter or restricted motion",
+            "Inadequate surfaces, floors, walkways or roads",
+            "Hazardous atmosphere (explosive/toxic/asphyxiant)",
+            "Storms or acts of nature",
+            "Inadequate work standards/procedures",
+            "Inadequate hazard identification or risk assessment",
+            "Inadequate communication",
+            "Inadequate supervision",
+            "Poor leadership/organizational culture",
+            "Failure to report/learn from events",
+            "Inadequate training/competence",
+          ],
+        };
+
+        function sanitize(str) {
+          if (str == null) return "";
+          return String(str)
+            .replace(/\uFFFD/g, "") // remove � from bad encodings
+            .replace(/â€™/g, "'")
+            .replace(/â€/g, "-")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function parseRaw(raw) {
+          const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+          if (lines.length === 0) return [];
+          const header = lines[0].split(/\t+/).map((h) => sanitize(h));
+          const idx = Object.fromEntries(header.map((h, i) => [h.toLowerCase(), i]));
+
+          const records = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(/\t+/).map((c) => sanitize(c));
+
+            // Guard: skip if not enough columns
+            if (cols.length < header.length - 2) continue;
+
+            const get = (name) => cols[idx[name] ?? -1] ?? "";
+
+            const date = get("date");
+            const summary = get("summary");
+            const injury = get("injury");
+            const department = get("department");
+            const ppe = get("ppe");
+            const objectInvolved = get("object");
+
+            const base = {
+              incident_data: {
+                date,
+                summary,
+                injury_incident_type: injury || "",
+                department,
+                ppe_used: ppe?.toLowerCase?.() || "",
+                object_involved: objectInvolved,
+              },
+              safety_manual_reference: { ...SAFETY_REF },
+              causal_factor_definitions: { ...CAUSAL_DEFS },
+              analysis: {
+                identified_people_factors: [],
+                identified_process_factors: [],
+                reasoning: "",
+              },
+              meta: {
+                incident: get("incident"),
+                type: get("type"),
+                potential_claim: get("potential claim?"),
+                report_id: get("reportid"),
+                lost_days: get("# lost days"),
+                restricted_days: get("# restricted days"),
+              },
+            };
+
+            records.push(base);
+          }
+          return records;
+        }
+
+        function DownloadButton({ data }) {
+          const onClick = () => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `incidents_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          };
+          return (
+            <button onClick={onClick} className="px-4 py-2 rounded-2xl shadow font-medium border hover:shadow-md">
+              Export JSON
+            </button>
+          );
+        }
+
+        function Pill({ children }) {
+          return (
+            <span className="text-xs px-2 py-1 rounded-full border bg-white/60">
+              {children}
+            </span>
+          );
+        }
+
+        function IncidentJsonBuilder() {
+          const [q, setQ] = useState("");
+          const [dept, setDept] = useState("All");
+          const [type, setType] = useState("All");
+          const [ppe, setPpe] = useState("All");
+
+          const data = useMemo(() => parseRaw(RAW), []);
+
+          const departments = useMemo(() => {
+            const set = new Set(data.map((d) => d.incident_data.department || "Unknown"));
+            return ["All", ...Array.from(set).sort()];
+          }, [data]);
+
+          const types = useMemo(() => {
+            const set = new Set(data.map((d) => (d.meta.incident || "").trim() || "Unknown"));
+            return ["All", ...Array.from(set).sort()];
+          }, [data]);
+
+          const ppeOptions = ["All", "yes", "no", "(blank)"];
+
+          const filtered = useMemo(() => {
+            return data.filter((d) => {
+              const hay = (
+                `${d.incident_data.summary} ${d.incident_data.injury_incident_type} ${d.incident_data.department} ${d.meta.report_id}`
+              )
+                .toLowerCase()
+                .trim();
+              const matchesQ = q.trim() === "" || hay.includes(q.toLowerCase());
+              const matchesDept = dept === "All" || (d.incident_data.department || "Unknown") === dept;
+              const matchesType = type === "All" || (d.meta.incident || "Unknown") === type;
+              const ppeVal = (d.incident_data.ppe_used || "").toLowerCase();
+              const matchesPpe =
+                ppe === "All" ||
+                (ppe === "(blank)" ? ppeVal === "" : ppeVal === ppe.toLowerCase());
+              return matchesQ && matchesDept && matchesType && matchesPpe;
+            });
+          }, [data, q, dept, type, ppe]);
+
+          return (
+            <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white text-slate-800">
+              <div className="max-w-7xl mx-auto px-4 py-8">
+                <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Incident JSON Builder & Viewer</h1>
+                    <p className="text-sm text-slate-500 mt-1">Parses your tab-delimited rows into the requested JSON structure and lets you search, filter, and export.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <DownloadButton data={filtered} />
+                  </div>
+                </header>
+
+                <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs uppercase tracking-wide text-slate-500">Search</label>
+                    <input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="summary, injury type, department, report id..."
+                      className="border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs uppercase tracking-wide text-slate-500">Department</label>
+                    <select value={dept} onChange={(e) => setDept(e.target.value)} className="border rounded-xl px-3 py-2">
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs uppercase tracking-wide text-slate-500">Incident</label>
+                    <select value={type} onChange={(e) => setType(e.target.value)} className="border rounded-xl px-3 py-2">
+                      {types.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs uppercase tracking-wide text-slate-500">PPE Used</label>
+                    <select value={ppe} onChange={(e) => setPpe(e.target.value)} className="border rounded-xl px-3 py-2">
+                      {ppeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+
+                <p className="mt-4 text-sm text-slate-500">Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of {data.length} records</p>
+
+                <main className="mt-4 grid gap-4">
+                  {filtered.map((item, idx) => (
+                    <article key={item.meta.report_id || idx} className="border rounded-2xl p-4 bg-white shadow-sm">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <h2 className="text-base font-semibold">{item.incident_data.summary || "(no summary)"}</h2>
+                          <div className="flex flex-wrap gap-2 text-slate-600">
+                            <Pill>{item.incident_data.date || "(no date)"}</Pill>
+                            <Pill>{item.incident_data.department || "Unknown Dept"}</Pill>
+                            <Pill>{item.meta.incident || "Incident"}</Pill>
+                            {item.incident_data.injury_incident_type && (
+                              <Pill>{item.incident_data.injury_incident_type}</Pill>
+                            )}
+                            {item.incident_data.ppe_used !== "" && (
+                              <Pill>PPE: {item.incident_data.ppe_used}</Pill>
+                            )}
+                            {item.meta.potential_claim && (
+                              <Pill>Potential Claim: {item.meta.potential_claim}</Pill>
+                            )}
+                            {item.meta.report_id && <Pill>Report #{item.meta.report_id}</Pill>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm text-slate-600 hover:text-slate-800">View JSON</summary>
+                        <pre className="mt-2 text-xs overflow-x-auto bg-slate-50 border rounded-xl p-3">
+{JSON.stringify({
+  incident_data: item.incident_data,
+  safety_manual_reference: item.safety_manual_reference,
+  causal_factor_definitions: item.causal_factor_definitions,
+  analysis: item.analysis,
+}, null, 2)}
+                        </pre>
+                      </details>
+                    </article>
+                  ))}
+                </main>
+
+                <footer className="mt-10 border-t pt-6 text-xs text-slate-500">
+                  This UI includes the static safety manual reference and causal factor definitions inside each JSON record, as requested.
+                </footer>
+              </div>
+            </div>
+          );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<IncidentJsonBuilder />);
+    </script>
+</body>
+</html>
